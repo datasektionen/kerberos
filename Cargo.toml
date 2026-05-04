@@ -1,0 +1,9 @@
+[package]
+name = "nfc-sso"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pcsc = "2.9"
+hex = "0.4"
+
