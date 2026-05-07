@@ -27,17 +27,38 @@ pub struct Cli {
         help = "Whether to resume from an existing file (uploads file contents to server if enabled and file exists)"
     )]
     resume: bool,
+    #[arg(
+        long,
+        short,
+        help = "URL of server to upload UIDs to (if not specified, taken from env var \"KERBEROS_SERVER_URL\")"
+    )]
+    server_url: Option<String>,
+    #[arg(
+        long,
+        short,
+        help = "Key to include in events sent to server (if not specified, taken from env var \"KERBEROS_KEY\" or prompted for on stdin)"
+    )]
+    key: Option<String>,
+    #[arg(
+        long,
+        short,
+        default_value_t = false,
+        help = "Whether to only onboard cards onto SSO"
+    )]
+    onbaord_only: bool,
 }
 
 #[derive(Debug)]
 pub struct State {
     pub file: Option<std::fs::File>,
     pub key: String,
+    pub server_url: String,
+    pub onboard_only: bool,
 }
 
 impl State {
     pub fn init() -> Self {
-        println!("Pordisto - A tool for monitoring smart card readers and logging UIDs");
+        println!("Kerberos - A tool for send UIDs from NFC cards to Karon");
 
         let cli = Cli::parse();
 
@@ -72,16 +93,33 @@ impl State {
         });
 
         info!("Getting key");
-        let key = env::var("PORDISTO_KEY")
-            .inspect(|v| println!("Using key from env var: {}", v))
-            .unwrap_or_else(|_| {
-                print!("Enter key (or use \"PORDISTO_KEY\" env var): ");
+        let key = cli
+            .key
+            .or_else(|| env::var("KERBEROS_KEY").ok())
+            .inspect(|v| println!("Using key: {}", v))
+            .unwrap_or_else(|| {
+                print!("Enter key (or use \"KERBEROS_KEY\" env var): ");
                 std::io::stdout().flush().expect("Failed to flush stdout");
                 let mut buf = String::new();
                 std::io::stdin()
                     .read_line(&mut buf)
                     .expect("Failed to read key from stdin");
-                buf
+                buf.trim().to_string()
+            });
+
+        info!("Getting server URL");
+        let server_url = cli
+            .server_url
+            .or_else(|| env::var("KERBEROS_SERVER_URL").ok())
+            .inspect(|v| println!("Using server URL: {}", v))
+            .unwrap_or_else(|| {
+                print!("Enter server URL (or use \"KERBEROS_SERVER_URL\" env var): ");
+                std::io::stdout().flush().expect("Failed to flush stdout");
+                let mut buf = String::new();
+                std::io::stdin()
+                    .read_line(&mut buf)
+                    .expect("Failed to read server URL from stdin");
+                buf.trim().to_string()
             });
 
         if let Some(f) = &cli.file
@@ -112,6 +150,11 @@ impl State {
             panic!("Resume enabled but no file provided");
         }
 
-        Self { file, key }
+        Self {
+            file,
+            key,
+            server_url,
+            onboard_only: cli.onbaord_only,
+        }
     }
 }
