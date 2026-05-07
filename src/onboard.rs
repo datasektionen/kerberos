@@ -1,7 +1,5 @@
 use std::io::Write;
 
-use crate::cli;
-
 pub fn send_card_or_onboard(
     client: &reqwest::blocking::Client,
     server_url: &str,
@@ -32,7 +30,8 @@ pub fn send_card_or_onboard(
                 log::info!("Successfully sent card event to server");
             }
             reqwest::StatusCode::UNPROCESSABLE_ENTITY => {
-                log::error!("Card not found on server, onboarding...");
+                log::info!("Card not found on server, onboarding...");
+                println!("Card with UID {} not found on server, onboarding...", uid);
                 onboard_card(client, server_url, key, uid, false, file)?;
             }
             s => {
@@ -63,7 +62,7 @@ pub fn onboard_card(
     let kthid = buf.trim();
 
     let url = if onboard_only {
-        format!("{}", server_url)
+        server_url.to_string()
     } else {
         format!("{}/card?onboard=1", server_url)
     };
@@ -84,14 +83,15 @@ pub fn onboard_card(
         Ok(s) => match s.status() {
             reqwest::StatusCode::OK => {
                 log::info!("Successfully onboarded card");
+                println!("Successfully onboarded card with kthid: {}", kthid);
             }
             reqwest::StatusCode::CONFLICT => {
-                log::error!("Card with same UID already exists on server");
+                log::info!("Card with same UID already exists on server");
                 let body = s
                     .text()
                     .unwrap_or_else(|_| "Failed to read response body".to_string());
-                log::error!("Card conflict server response: {}", body);
-                println!("Card with same UID already exists: {}", body);
+                log::info!("Card conflict server response: {}", body);
+                println!("Card already owned by: {}", body);
             }
             s => {
                 log::error!("Failed to onboard card: HTTP {}", s);

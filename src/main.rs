@@ -35,6 +35,7 @@ fn main() {
         "Starting main loop, sending card events to server at {}",
         &state.server_url
     );
+    println!("Waiting for cards...");
     for event in rx {
         match event {
             Event::Card(uid) => {
