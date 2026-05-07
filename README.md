@@ -10,4 +10,4 @@ kerberos -h
 
 ### Key
 
-Get a key from starting a new meeing in: [`karon.datasektionen.se`](https://karon.datasektionen.se/).
+Get a key from starting a new meeting in: [`karon.datasektionen.se`](https://karon.datasektionen.se/).
