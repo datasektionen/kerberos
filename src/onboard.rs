@@ -1,34 +1,42 @@
 use std::io::Write;
 
+use crate::cli;
+
 pub fn send_card_or_onboard(
     client: &reqwest::blocking::Client,
     server_url: &str,
     key: &str,
     uid: String,
     onboard_only: bool,
+    mut file: Option<&mut std::fs::File>,
 ) -> Result<(), std::io::Error> {
-    let req = if onboard_only {
-        client
-            .post(format!("{}/onboard", server_url))
-            .bearer_auth(key)
-            .body(uid.clone())
-    } else {
-        client
-            .post(format!("{}/card", server_url))
-            .bearer_auth(key)
-            .body(uid.clone())
-    };
-    match req.send() {
+    if let Some(file) = file.as_mut() {
+        writeln!(file, "{}", uid)?;
+        log::info!("Wrote card UID to file: {}", uid);
+    }
+
+    if onboard_only {
+        let addr = format!("{}/onboard", server_url);
+        log::info!("Onboard only mode enabled, sending card to {}", addr);
+        onboard_card(client, &addr, key, uid.clone(), true, file)?;
+        return Ok(());
+    }
+
+    match client
+        .post(format!("{}/card", server_url))
+        .body(uid.clone())
+        .send()
+    {
         Ok(s) => match s.status() {
             reqwest::StatusCode::OK => {
                 log::info!("Successfully sent card event to server");
             }
             reqwest::StatusCode::UNPROCESSABLE_ENTITY => {
                 log::error!("Card not found on server, onboarding...");
-                onboard_card(client, server_url, key, uid, false)?;
+                onboard_card(client, server_url, key, uid, false, file)?;
             }
             s => {
-                log::error!("Failed to send card event to server: HTTP {}", s);
+                log::error!("Status code: Failed to send card event to server: {}", s);
             }
         },
         Err(e) => {
@@ -44,6 +52,7 @@ pub fn onboard_card(
     key: &str,
     uid: String,
     onboard_only: bool,
+    file: Option<&mut std::fs::File>,
 ) -> Result<(), std::io::Error> {
     println!("Enter the kthid for the card (e.g. \"turetek\"): ");
     std::io::stdout().flush().expect("Failed to flush stdout");
@@ -54,10 +63,17 @@ pub fn onboard_card(
     let kthid = buf.trim();
 
     let url = if onboard_only {
-        server_url.to_string()
+        format!("{}", server_url)
     } else {
-        format!("{}?onboard=1", server_url)
+        format!("{}/card?onboard=1", server_url)
     };
+
+    log::info!("onboard card url: {}", url);
+
+    if let Some(file) = file {
+        writeln!(file, "{}#{}", kthid, uid)?;
+        log::info!("Wrote card info to file: {}#{}", kthid, uid);
+    }
 
     match client
         .post(url)
@@ -68,6 +84,14 @@ pub fn onboard_card(
         Ok(s) => match s.status() {
             reqwest::StatusCode::OK => {
                 log::info!("Successfully onboarded card");
+            }
+            reqwest::StatusCode::CONFLICT => {
+                log::error!("Card with same UID already exists on server");
+                let body = s
+                    .text()
+                    .unwrap_or_else(|_| "Failed to read response body".to_string());
+                log::error!("Card conflict server response: {}", body);
+                println!("Card with same UID already exists: {}", body);
             }
             s => {
                 log::error!("Failed to onboard card: HTTP {}", s);
