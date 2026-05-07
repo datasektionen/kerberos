@@ -24,12 +24,15 @@ impl Reader {
         })
     }
 
-    pub fn wait_for_change(&mut self) -> Result<(), String> {
+    pub fn wait_for_change(&mut self) {
         self.refresh_readers();
 
-        self.ctx
-            .get_status_change(None, &mut self.states)
-            .map_err(|e| format!("failed to get status change: {}", e))
+        match self.ctx.get_status_change(None, &mut self.states) {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("failed to get status change: {}", e)
+            }
+        }
     }
 
     fn refresh_readers(&mut self) {
@@ -70,10 +73,13 @@ impl Reader {
                 continue;
             }
             info!("{:?} {:?} {:?}", rs.name(), rs.event_state(), rs.atr());
-            
+
             // If the reader reports a card present, connect and request UID.
             if rs.event_state().contains(State::PRESENT) {
-                match self.ctx.connect(rs.name(), ShareMode::Shared, Protocols::ANY) {
+                match self
+                    .ctx
+                    .connect(rs.name(), ShareMode::Shared, Protocols::ANY)
+                {
                     Ok(card) => {
                         info!("Connected to {:?}, sending APDU command", rs.name());
                         // APDU commonly used to get the UID via PC/SC

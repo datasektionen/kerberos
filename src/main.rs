@@ -23,7 +23,7 @@ fn main() {
         let mut reader = reader::Reader::new().expect("failed to create reader");
 
         loop {
-            reader.wait_for_change().expect("failed to wait for change");
+            reader.wait_for_change();
             let uids = reader.status_loop();
             for uid in uids {
                 if let Some(file) = &mut state.file {
@@ -39,18 +39,18 @@ fn main() {
     });
 
     let client = reqwest::blocking::Client::new();
-    let server_url = format!("{}/card", &state.server_url);
     info!(
         "Starting main loop, sending card events to server at {}",
-        server_url
+        &state.server_url
     );
     for event in rx {
         match event {
             Event::Card(uid) => {
                 info!("Received card event with UID: {}", uid);
+                println!("Received card event with UID: {}", uid);
                 onboard::send_card_or_onboard(
                     &client,
-                    &server_url,
+                    &state.server_url,
                     &state.key,
                     uid,
                     state.onboard_only,

@@ -54,15 +54,15 @@ pub fn onboard_card(
     let kthid = buf.trim();
 
     let url = if onboard_only {
-        format!("{}/onboard", server_url)
+        server_url.to_string()
     } else {
-        format!("{}/card?onboard=1", server_url)
+        format!("{}?onboard=1", server_url)
     };
 
     match client
         .post(url)
         .bearer_auth(key)
-        .body(format!("{}:{}", kthid, uid))
+        .body(format!("{}#{}", kthid, uid))
         .send()
     {
         Ok(s) => match s.status() {
