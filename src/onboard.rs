@@ -22,6 +22,7 @@ pub fn send_card_or_onboard(
 
     match client
         .post(format!("{}/card", server_url))
+        .bearer_auth(key)
         .body(uid.clone())
         .send()
     {
