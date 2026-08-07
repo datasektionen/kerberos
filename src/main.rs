@@ -46,9 +46,14 @@ fn main() {
                     let result = onboard::CardRequestBuilder::new(uid.clone(), &state.server_url)
                         .token(&state.key)
                         .file(state.file.as_mut())
+                        .onboard(state.onboard_only)
                         .build(&client);
                     match result {
-                        onboard::RequestResult::Success => break,
+                        onboard::RequestResult::Success => {
+                            log::info!("Card event sent successfully");
+                            println!("Success");
+                            break;
+                        },
                         onboard::RequestResult::NotFound => {
                             log::info!("Card not found, onboarding...");
                             println!("Card with UID {} not found, onboarding...", uid);
