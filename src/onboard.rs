@@ -1,5 +1,7 @@
 use std::io::Write;
 
+use reqwest::Url;
+
 #[derive(Debug)]
 pub enum RequestResult {
     Success,
@@ -89,7 +91,7 @@ impl<'a, 'b> CardRequestBuilder<'a, 'b> {
             format!("{}/card", self.server_url)
         };
 
-        let body = if self.onboard {
+        let url = if self.onboard {
             println!("Enter the kthid for the card (e.g. \"turetek\"): ");
             std::io::stdout().flush().expect("Failed to flush stdout");
             let mut buf = String::new();
@@ -97,13 +99,14 @@ impl<'a, 'b> CardRequestBuilder<'a, 'b> {
                 .read_line(&mut buf)
                 .expect("Failed to read input from stdin");
             let kthid = buf.trim();
-            format!("{}#{}", kthid, self.uid)
+            Url::parse_with_params(&url, &[("kth-id", kthid), ("card-uid", &self.uid)])
         } else {
-            self.uid.clone()
-        };
+            Url::parse_with_params(&url, &[("card-uid", &self.uid)])
+        }
+        .expect("Failed to parse URL");
 
         if let Some(file) = self.file {
-            match writeln!(file, "{}", body) {
+            match writeln!(file, "{}", url) {
                 Ok(()) => log::info!("Wrote card UID to file: {}", self.uid),
                 Err(e) => log::error!("Writing to file: {e}"),
             };
@@ -112,7 +115,6 @@ impl<'a, 'b> CardRequestBuilder<'a, 'b> {
         let response = client
             .post(url)
             .bearer_auth(self.token.unwrap_or_default())
-            .body(body)
             .send();
 
         RequestResult::from(response)
